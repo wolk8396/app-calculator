@@ -6,60 +6,83 @@ const btn_dot = document.querySelector('.dot');
 const btn_percent = document.querySelector('.percent');
 const result = document.querySelector('.results');
 const displayResult = document.querySelector('.operations');
-
 const error  = 'деление на ноль невозможно';
 const regexNum = /^\d+$/;
 const regexOperation = /[/*\-+]/;
 const checkNum = /\d+[+\-*/]\d+/;
 const regexAfterNum = /\d*?[+\-*\/]$/;
 const regexReplaceSymbol = /[/*\-+]+$/;
-
 let finalResults = '';
+let disabled = true;
 let date = '0';
 let str = '';
+let isError = false;
 
 const parseExpressionStr = expression => {
-  let currentExpression = '';
-  const parsedExpression = [];
-
-  for (let i = 0; i < expression.length; i++) {
-    const char = expression[i];
-    if (regexOperation.test(char) && currentExpression === '') {
-      currentExpression += char;
-    } else if (regexOperation.test(char)) {
-      parsedExpression.push(currentExpression.trim());
-      parsedExpression.push(char);
-      currentExpression = '';
-    } else {
-      currentExpression += char;
+  const result = expression
+    .replace(/([-+/*])|(\d*\.?\d+(?:e[-+]?\d+)?)/g, '$1$2 ')
+    .match(/(-?\d*\.?\d+(?:e[-+]?\d+)?|\S+)/g);
+    if (result.length > 0) {
+      const firstChar = result[0];
+      if (firstChar === '-' && result.length > 1) {
+        result[0] += result[1];
+        result.splice(1, 1);
+      }
     }
-  }
-
-  parsedExpression.push(currentExpression.trim());
-  return parsedExpression;
+  return result;
 };
+
+const handleKeyboard = key => {
+  if (key === 'Escape') onReset();
+  if (key === 'Backspace' && !isError) onDeleteStr();
+  if( key === '.' && !isError) addDotToString();
+  if(regexOperation.test(key) || regexNum.test(key)) onGetValue(key);
+  if (key === 'Enter' && !isError) onGetResults();
+  if (key === '%' && !isError) onGtePercent();
+}
+
+const ChangeSizeTextResults = length => {
+  length >= 10 ?
+    result.classList.add('isActive') :
+    result.classList.remove('isActive');
+}
+
+const onSetError = value => {
+  isError = value;
+  value ? 
+    result.classList.add('isError') :
+    result.classList.remove('isError');
+}
 
 const onReset = () => {
   finalResults = '';
   result.innerHTML = '0';
   displayResult.innerHTML = '';
+  disabled = true;
   date = '0';
   str = '';
+  onSetError(false);
 };
 
 const onGtePercent = () => {
-  if (!!finalResults || regexNum.test(date)) {
+  if ((!!finalResults || regexNum.test(date)) && !isError) {
     date = String(Number(date) / 100)
     result.innerHTML = `${date}`;
     displayResult.innerHTML = '';
   }
 };
 
+const onRemoveDot = value => {
+  if (date.endsWith('.') && regexOperation.test(value)) {
+    date = date.slice(0, -1);
+  };
+};
+
 const onSetSrt = value => {
   let newSymbol;
   if (date === '0' && !regexOperation.test(value)) date = '';
   date += value.trim();
-
+  
   if (regexOperation.test(date)) {
     newSymbol = regexAfterNum.test(value) ? value : '';
     date = date.replace(regexReplaceSymbol, '');
@@ -75,23 +98,34 @@ const onDeleteStr = () => {
     str = '';
     date = '0';
     finalResults = '';
-  }
+  };
+
   displayResult.innerHTML = `${date}`;
-  result.innerHTML = '0';
+  result.innerHTML = str;
+  isError = false;
+  onSetError(false);
 };
 
 const addDotToString = () => {
-  if (!str.includes('.') || !date.includes('.')) {
-    str += '.';
-    date += '.'
+  if(!!finalResults  && !isError) {
+    str = '0.';
+    date = '0.';
   };
-  displayResult.innerHTML = date;
-  result.innerHTML = str;
+
+  if((!str.includes('.') || !date.includes('.')) && !isError) {
+    date += '.';
+    str = str === '' ? str = '0.' : str += '.';
+  };
+
+  if (!isError) {
+    displayResult.innerHTML = date;
+    result.innerHTML = str;
+  };
 };
 
 const onGetResults = () => {
-  console.log(date);
-  if (!regexNum.test(date)) calculateResult();
+  if (disabled) calculateResult();
+  disabled = false;
 };
 
 const calculateResult = () => {
@@ -99,7 +133,8 @@ const calculateResult = () => {
   const num1 = Number(res[0]);
   const num2 = Number(res[2]);
   let resultValue = '';
-  str = '';
+  onRemoveDot(res[1]);
+
   switch (res[1]) {
     case '+':
       resultValue = (num1 + num2);
@@ -112,24 +147,33 @@ const calculateResult = () => {
       break;
     case '/':
       resultValue = !num2 ?  error :  (num1 / num2);
+      onSetError(!num2);
       break;
   };
 
   if (checkNum.test(date)) finalResults = date;
   result.innerHTML = resultValue;
   date = String(resultValue);
-  displayResult.innerHTML = `${finalResults}=${date.replace(/^0+/, "")}`;
+
+  ChangeSizeTextResults(date.length);
+
+  isError ? 
+    displayResult.innerHTML = '' :
+    displayResult.innerHTML = `${finalResults} =`;
 };
 
 const onGetValue = value => {
+  onRemoveDot(value);
   if (regexOperation.test(value)) {
     str = '';
     result.innerHTML = '';
+    disabled = true;
   };
 
   if (regexNum.test(value)) {
     str += value;
     result.innerHTML = str;
+    ChangeSizeTextResults(str.length);
   };
 
   if (checkNum.test(date) && regexOperation.test(value)) {
@@ -146,31 +190,13 @@ bet_reset.addEventListener('click', onReset);
 btn_results.addEventListener('click', onGetResults);
 btn_dot.addEventListener('click', addDotToString);
 btn_percent.addEventListener('click', onGtePercent);
-
-document.addEventListener('keydown', function(event) {
-  const key =  event.key;
-  switch (true) {
-    case key === 'Escape' :
-      onReset();
-      break;
-    case key === 'Backspace' :
-      onDeleteStr();
-      break;
-    case key === '.' :
-      addDotToString();
-      break;
-    case  regexOperation.test(key) || regexNum.test(key) :
-      onGetValue(key)
-      break;
-    case key === 'Enter':
-      onGetResults();
-      break;
-  }
-});
+document.addEventListener('keydown', (event) => handleKeyboard(event.key))
 
 const onInit = () => {
   bet_keyboard.forEach(btn => {
-    btn.onclick = () => onGetValue(btn.textContent);
+   btn.onclick = () => {
+    if (!isError)  onGetValue(btn.textContent);
+   } 
   });
 };
 

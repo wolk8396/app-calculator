@@ -17,6 +17,8 @@
   background-color:#80808099;
   border-radius: 2%;
   padding: 1rem;
+  margin: 0 auto;
+  margin-top: 1rem;
 }
 
 .display {
@@ -30,12 +32,21 @@
 
 .operations {
   color: whitesmoke;
-  font-size: .5rem;
+  font-size: .8rem;
 }
 
 .results {
   color: whitesmoke;
   font-size: 3rem
+}
+
+.isActive {
+  font-size: 1.2rem;
+}
+
+.isError {
+  color: red;
+  font-size: 1.2rem;
 }
 
 .keyboard-container {
